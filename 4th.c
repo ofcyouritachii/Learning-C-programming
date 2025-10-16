@@ -1,7 +1,5 @@
 #include <stdio.h>
 void checkNum(int N) {
-  
-    // Check if the number is zero
     if (N == 0) {
         printf("Zeri\n");
     }
