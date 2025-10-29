@@ -9,6 +9,7 @@
 #include <errno.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <stdbool.h>
 struct prog { const char *name; const char *file; };
 
 static struct prog progs[] = {
@@ -31,6 +32,22 @@ static int count_progs(void) {
     while (progs[i].name) ++i;
     return i;
 }
+
+/* ANSI color codes; only used when stdout is a TTY */
+static const char *CLR_RESET = "\x1b[0m";
+static const char *CLR_BOLD = "\x1b[1m";
+static const char *CLR_RED = "\x1b[31m";
+static const char *CLR_GREEN = "\x1b[32m";
+static const char *CLR_YELLOW = "\x1b[33m";
+static const char *CLR_CYAN = "\x1b[36m";
+static const char *CLR_MAGENTA = "\x1b[35m";
+
+/* Helper: print with color if enabled */
+#define color_printf(use, color, ...) do { \
+    if (use) printf("%s", color); \
+    printf(__VA_ARGS__); \
+    if (use) printf("%s", CLR_RESET); \
+} while (0)
 
 static int compile_program(const char *src_path, char *out_path, size_t out_sz) {
     char tmpl[] = "/tmp/selected_prog_XXXXXX";
@@ -99,30 +116,32 @@ int main(void) {
     char line[128];
 
     /* Show the menu once */
-    puts("\n=== C Programs Menu ===");
+    bool use_color = isatty(STDOUT_FILENO);
+    color_printf(use_color, CLR_BOLD, "\n");
+    color_printf(use_color, CLR_CYAN, "=== C Programs Menu ===\n");
     for (int i = 0; i < n; ++i) {
         printf("%2d) %s\n", i + 1, progs[i].name);
     }
-    puts(" 0) Exit");
-    printf("Select a program to compile & run: ");
+    color_printf(use_color, CLR_CYAN, " 0) Exit\n");
+    color_printf(use_color, CLR_YELLOW, "Select a program to compile & run: ");
 
     if (!fgets(line, sizeof line, stdin)) {
-        puts("Input error or EOF. Exiting.");
+        color_printf(use_color, CLR_RED, "Input error or EOF. Exiting.\n");
         return 1;
     }
 
     char *endptr;
     long choice = strtol(line, &endptr, 10);
     if (endptr == line) {
-        puts("Please enter a valid number.");
+        color_printf(use_color, CLR_RED, "Please enter a valid number.\n");
         return 1;
     }
     if (choice == 0) {
-        puts("Goodbye.");
+        color_printf(use_color, CLR_CYAN, "Goodbye.\n");
         return 0;
     }
     if (choice < 1 || choice > n) {
-        puts("Invalid choice.");
+        color_printf(use_color, CLR_RED, "Invalid choice.\n");
         return 1;
     }
 
@@ -134,22 +153,22 @@ int main(void) {
     }
 
     char out_path[MAX_PATH_LEN];
-    printf("Compiling %s...\n", progs[idx].name);
+    color_printf(use_color, CLR_MAGENTA, "Compiling %s...\n", progs[idx].name);
     if (compile_program(src_path, out_path, sizeof out_path) != 0) {
-        fprintf(stderr, "Compilation failed for %s\n", progs[idx].file);
+        color_printf(use_color, CLR_RED, "Compilation failed for %s\n", progs[idx].file);
         return 1;
     }
 
-    printf("Running %s:\n", progs[idx].name);
+    color_printf(use_color, CLR_GREEN, "Running %s:\n", progs[idx].name);
     int rc = run_program(out_path);
     if (rc >= 0) {
-        printf("Program exited with status %d\n", rc);
+        color_printf(use_color, CLR_GREEN, "Program exited with status %d\n", rc);
     } else {
-        printf("Failed to run program\n");
+        color_printf(use_color, CLR_RED, "Failed to run program\n");
     }
     /* remove the temporary executable */
     unlink(out_path);
 
-    puts("Goodbye.");
+    color_printf(use_color, CLR_CYAN, "Goodbye.\n");
     return rc >= 0 ? rc : 1;
 }
