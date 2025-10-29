@@ -1,4 +1,5 @@
 #include <stdio.h>
+
 int main() {
     int a , num, n, sum=0;
     printf("Enter a 5 digit number: ");
